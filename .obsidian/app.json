@@ -1,0 +1,7 @@
+{
+  "promptDelete": true,
+  "trashOption": "local",
+  "attachmentFolderPath": "image",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "temp"
+}
