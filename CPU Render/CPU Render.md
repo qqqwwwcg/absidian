@@ -257,7 +257,175 @@ if x1 == x2{
 	}
 }
 ```
+
+注：该算法适用于大部分线Inside或Outside的场景
+
 [skywind3000/RenderHelp: 可编程渲染管线实现，帮助初学者学习渲染 (github.com)](https://github.com/skywind3000/RenderHelp)
 [Bresenham 直线算法 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/106155534)
 
+### 直线裁剪
+#### Cohen Sutherland
+算法思想：通过对区域进行划分，并对端点进行编码，通过位运算快速判断出线段INSIDE或Outside(部分情况)，并对Intersect(包含一部分的outside)的情况，对端点进行裁剪，循环上述过程，直到线段Inside 或 Outside
+
+第一步：端点编码
+```cpp
+const int IN      =  0x0000;
+const int LEFT    =  0x0001;
+const int RIGHT   =  0x0010;
+const int BOTTOM  =  0x0100;
+const int TOP     =  0x1000;
+```
+对端点进行区域编码
+![[Cohen-Sutherland_img1.png]]
+ex：p点落在右侧，code = code | RIGHT
+
+第二步：判断P1、P2位置
+code1 | code2 = 0 => P5P6 都在矩形内， **return** inside
+code1 & code2 =0 =>P9P10落在矩形外，且在 同一侧，与矩形无相交 return outside
+else =>P1P2、P7P8与矩形相交 或 P3P4与矩形不相交，但也不在同一侧
+![[Cohen-Sutherland image2.jpg]]
+
+第三步：相交裁剪
+对P1、P2编码区域排序，P1>P2
+对P1进行裁剪，得到中间点P3，更新线段P1P2 = >P2P3
+继续第二步
+ps：对于P1P2、P7P8会在第二部被裁剪为inside，对于P9P10会在第二步被裁剪为Outside
+
+code
+```
+const int IN      =  0x0000;
+const int LEFT    =  0x0001;
+const int RIGHT   =  0x0010;
+const int BOTTOM  =  0x0100;
+const int TOP     =  0x1000;
+
+enum ClippingState{
+	Inside(P1,P2),
+	Outside
+}
+
+fn draw_line(p1:Vec2,p2:Vec2){
+	match clip_line(p1,p2){
+		Inside(p1,p2)=>rela_draw_line(p1,p2),
+		Outside=>{}
+	}
+}
+
+fn clip_line(p1:Vec2,p2:Vec2) -> ClippingState{
+	let encode = |p:Vec2|{
+		let mut code = IN;
+		if p.x < left{
+			code = code | LEFT
+		}else if p.x > right{
+			code = code | RIGHT
+		}
+
+		if p.y < bottom{
+			code = code | BOTTOM
+		}else if p.y > TOP{
+			code = code | TOP
+		}
+
+		TOP
+	}
+
+	let sort = |p1:Vec2, P2:Vec2|{
+		if code2 < code1{
+			p = p1;
+			p1 = p2;
+			p2 = p;
+			
+			code = code1;
+			code1 = code2;
+			code2 = code;
+		}
+	}
+
+	let mut p1 = p1;
+	let mut p2 = p2;
+	let mut code1 = encode(p1);
+	let mut code2 = encode(p2);
+	let iter = 10; 防止异常死循环，理论上不会通过iter来跳出循环
+	while iter > 0{
+		iter -=1;
+		if code1 | code2 = 0{
+			return Inside(p1,p2)
+		}else if code1 & code2 =0{
+			return Outside
+		}else{
+			// y = （y2-y1）/(x2 -x1) * (x-x1) + y1
+			// x = (x2-x1)/(y2-y1) * (y-y1) + x1
+			sort(p1,p2);
+			let p=p1;
+			if code1 & LEFT != 0 {  线段与左边界相交
+				p.x = left;
+				p.y = y1+(y2-y1)*(left-x1)/(x2-x1);
+			}else if code1 & RIGHT != 0 {
+				P.X = right;
+				p.y = y1+(y2-y1)*(right-x1)/(x2-x1);
+			}else if code1 & BOTTOM !=0 {
+				p.y = bottom;
+				p.x = (x2-x1)/(y2-y1) * (bottom-y1) + x1;
+			}else if code1 & TOP !=0 {
+				p.y = top;
+				p.x = (x2-x1)/(y2-y1) * (top-y1) + x1;
+			}
+			p1 = p;
+			code1 = encode(p1);
+		}
+	}
+	Outside
+}
+```
+[科恩-苏泽兰算法 - 维基百科，自由的百科全书 (wikipedia.org)](https://zh.wikipedia.org/wiki/%E7%A7%91%E6%81%A9-%E8%8B%8F%E6%B3%BD%E5%85%B0%E7%AE%97%E6%B3%95)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## 三角面片光栅化
+三角形光栅化的前提是先检查是否退化为直线
+
+### Edge Walking (CPU)
+算法思想：线扫描模式，逐行扫描三角形的线，通过draw_line来绘制三角形，比较适合在CPU端计算
+第一步：
+由于扫描过程需要不断计算线的两个端点，对于蓝色部分的计算线为(middle,top)和（bottom，top），而绿色部分则是（bottom,middle）和（bottom，top）
+因此需要通过对y值来排序，将三角形化为两个平底三角形（Ptop, Pmiddle, P）,(Pbottom, Pmiddle, P)
+计算P点，y = y middle，并且位于Pbottom,Ptop上
+更近一步，为了统一两个三角形的计算流程，将平地三角形抽象为梯形(line1,line2)
+注：需要检查三角形本身是平底三角形
+![[线扫描.jpg]]
+第二步：y每次+1，求解在梯形两边的端点P1P2，P1P2光栅化线
+
+## Edge Equation(GPU)
+算法思想：遍历像素，判断像素是否在三角形内部，如果在内部，则渲染这个像素
+第一步：求解三角形的包围盒
+第二步：仅对包围盒内的像素点进行遍历，判断其重心坐标，是否落在三角形内部，渲染内部的像素点
+ps：判断是否落在三角形内部，不通过叉乘来判断，因为需要重心坐标来插值颜色.
+![[三角形光栅化.png]]
+注：上述过程，相较于线扫描模式，计算量更大，但是优势在于，形式简单且单一，天然适合GPU并行运算，因此在GPU中应用
+
+## 透视投影矫正
+在进行线性插值时，GPU拿到的数据是经过透视投影后的点S，对于S的插值比例是q，透视投影之前的插值比例应该是t，显然经过透视投影后，t和q不一样 **(正交投影是不变的)**
+因此，需要对投影后的顶点插值，进行透视投影矫正
+![[透视投影矫正.png]]
+
+
+注：透视投影矫正中，会经常出现1/z，因此需要将其存下来
+[PerspectiveCorrectZU.pdf (cornell.edu)](https://www.cs.cornell.edu/courses/cs4620/2015fa/lectures/PerspectiveCorrectZU.pdf)
+[还原被摄像机透视的纹理 - Skywind Inside](https://www.skywind.me/blog/archives/1363)
+
+TODO：推导透视投影矫正
