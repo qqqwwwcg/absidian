@@ -70,7 +70,7 @@ tips1: 为什么是|K|，因为0<k<1,和-1<k<0，流程一样，x都是主方向
 tips2:为什么要区分主要步进方向
 当k>1是，如果仍选取x为主要不仅方向，会失真
 本来应该有5个像素点，现在仅有3个
-![[DDA.png]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/DDA.png)
 [(86条消息) DDA画线算法+代码详解-直线扫描算法之一_dda算法例题及解题思路_热带宇林V的博客-CSDN博客](https://blog.csdn.net/u013378269/article/details/103555482)
 
 ### 中点画线法
@@ -103,7 +103,7 @@ ex：假定绘制的直线，1.起点小于终点，2. 0 < k <1
 	k = (y2-y1) / (x2-x1)
 	delta = d0 = 0 在y方向的投影的变化量
 	由于是屏幕像素，所以x每次+1,delta每次+k (0<k<1)，将delta与0.5比较，大于则y+1,delta -=1, 否则y不变
-![[bresenham1.jpg]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/bresenham1.jpg)
 
 
 
@@ -179,7 +179,8 @@ while x <= x2{
 ```
 
 上述仅为 1.起点小于终点，2. 0 < k <1的情况，需要对下图的8中情况都包括
-![[bresenham.jpg]]
+
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/bresenham.jpg)
 首先，通过对P1、P2进行交换，保证x1 < x2，则上图的左边四种情况被过滤掉
 其次，与DDA相似，0< k < 1 与 -1< K<0，流程一样，仅仅是dy的方向不同
 最后，对于|K|<1,|k >1，x，y的步进方向不同，仅对此两种情况进行流程区分
@@ -276,14 +277,14 @@ const int BOTTOM  =  0x0100;
 const int TOP     =  0x1000;
 ```
 对端点进行区域编码
-![[Cohen-Sutherland_img1.png]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/Cohen-Sutherland_img1.png)
 ex：p点落在右侧，code = code | RIGHT
 
 第二步：判断P1、P2位置
 code1 | code2 = 0 => P5P6 都在矩形内， **return** inside
 code1 & code2 =0 =>P9P10落在矩形外，且在 同一侧，与矩形无相交 return outside
 else =>P1P2、P7P8与矩形相交 或 P3P4与矩形不相交，但也不在同一侧
-![[Cohen-Sutherland image2.jpg]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/Cohen-Sutherland%20image2.jpg)
 
 第三步：相交裁剪
 对P1、P2编码区域排序，P1>P2
@@ -407,7 +408,7 @@ fn clip_line(p1:Vec2,p2:Vec2) -> ClippingState{
 计算P点，y = y middle，并且位于Pbottom,Ptop上
 更近一步，为了统一两个三角形的计算流程，将平地三角形抽象为梯形(line1,line2)
 注：需要检查三角形本身是平底三角形
-![[线扫描.jpg]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/%E7%BA%BF%E6%89%AB%E6%8F%8F.jpg)
 第二步：y每次+1，求解在梯形两边的端点P1P2，P1P2光栅化线
 
 ## Edge Equation(GPU)
@@ -415,13 +416,13 @@ fn clip_line(p1:Vec2,p2:Vec2) -> ClippingState{
 第一步：求解三角形的包围盒
 第二步：仅对包围盒内的像素点进行遍历，判断其重心坐标，是否落在三角形内部，渲染内部的像素点
 ps：判断是否落在三角形内部，不通过叉乘来判断，因为需要重心坐标来插值颜色.
-![[三角形光栅化.png]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/%E4%B8%89%E8%A7%92%E5%BD%A2%E5%85%89%E6%A0%85%E5%8C%96.png)
 注：上述过程，相较于线扫描模式，计算量更大，但是优势在于，形式简单且单一，天然适合GPU并行运算，因此在GPU中应用
 
 ## 透视投影矫正
 在进行线性插值时，GPU拿到的数据是经过透视投影后的点S，对于S的插值比例是q，透视投影之前的插值比例应该是t，显然经过透视投影后，t和q不一样 **(正交投影是不变的)**
 因此，需要对投影后的顶点插值，进行透视投影矫正
-![[透视投影矫正.png]]
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/%E9%80%8F%E8%A7%86%E6%8A%95%E5%BD%B1%E7%9F%AB%E6%AD%A3.png)
 
 
 注：透视投影矫正中，会经常出现1/z，因此需要将其存下来
@@ -429,3 +430,14 @@ ps：判断是否落在三角形内部，不通过叉乘来判断，因为需要
 [还原被摄像机透视的纹理 - Skywind Inside](https://www.skywind.me/blog/archives/1363)
 
 TODO：推导透视投影矫正
+
+### 透视除法
+OpenGL的NDC定义为Z = [0, 1]，[-1, 1] => [0,1]的过程作用在viewport，下图中的变换函数具有一个非常好的性质，在Z接近近平面，变化非常剧烈，更远的地方，变化很小，有利于解决Z-fighting
+![](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/Pasted%20image%2020230608194340.png)
+### 深度测试
+背面剔除
+视锥剔除
+Clipping
+
+### Camera
+camera和frusutm关联
