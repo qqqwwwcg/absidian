@@ -972,3 +972,102 @@ GPU中的逻辑运算 更像是 顺序执行，被遮掩的代码需要消耗相
 [GPU架构探秘之旅 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1351502583832354816)
 
 [GPU架构和渲染 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/441610596)
+
+
+  
+
+# 概述
+
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306241653770.png)
+
+  
+
+## Instance
+
+通过info来创建，用来控制vulkan的版本(可向前兼容)等信息
+
+设置开启的layer和extension
+
+  
+
+## Layer & Extension
+
+layer：用来调试、验证
+
+extension：用来开启vulkan的扩展特性，包括RayTracing、SwapChain等
+
+  
+
+## PhysicalDevice
+
+物理设备，往往指显卡，常用来查找或get一些信息
+
+注：可通过枚举所有物理设备，选取符合相应特性的设备
+
+## Device
+
+逻辑设备，物理设备一般不与程序直接交互，通过对物理设备的映射，得到逻辑设备，用来和程序交互
+
+  
+
+## Queue
+
+vulkan通过command来对绘制指令、内存申请进行==异步==执行，提交的对象就是命令族，图形、计算、内存拥有各自的命令族
+
+  
+
+## Surface & SwapChain & presentation
+
+vulkan本身是与平台无关的，需要利用原生平台的窗口系统来显示渲染的内容，vulkan通过surfece抽象各平台的窗口系统，例如windows下，需要hwnd和hinstance句柄来创建surface
+
+  
+
+SwapChain
+
+![[#Swap Chain(Mulit Buffer)]]
+
+  
+
+presentation将绘制内容，呈现到surface
+
+  
+
+注：surface、swapchain都属于extension，需要在Instance中开启
+
+  
+  
+
+## image & frame buffer
+
+通过image view指定对swap chain输出内容的解析格式
+
+注：输出内容不变，仅是按照不同格式去解析 RGBA，RGB？
+
+  
+
+frame buffer: pipeline最终输出到buffer
+
+  
+  
+
+在gup中分配的一小块内存空间，显卡访问GPU的速度，要比访问CPU的速度快很多；
+
+  
+
+①减少对cpu的访问次数，将数据一次性存放在buffer中，直接在buffer中读取
+
+  
+
+②buffer创建时，还存在cpu中，bind就是转移到具体buffer类型中
+
+  
+
+## pipeline
+
+光栅化Pipeline
+
+RayTraceing Pipeline
+
+  
+
+TODO：加链接
