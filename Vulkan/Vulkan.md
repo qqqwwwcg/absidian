@@ -14,7 +14,8 @@ Vulkan学习指南
 
 [Vulkan 教程|极客教程 (geek-docs.com)](https://geek-docs.com/vulkan/vulkan-tutorial/vulkan-tutorial-index.html)
 
-
+ [Vulkan 三角形之旅 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/555146594)
+ 
 
 ## Swap Chain(Mulit Buffer)
 
@@ -976,7 +977,7 @@ GPU中的逻辑运算 更像是 顺序执行，被遮掩的代码需要消耗相
 
   
 
-# 概述
+# Hello World
 
 ![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306241653770.png)
 
@@ -1071,3 +1072,103 @@ RayTraceing Pipeline
   
 
 TODO：加链接
+
+# Instance
+instance 通过createInstance(createInfo info)创建
+
+info中指定了开启的layer、extension、appInfo(版本信息)
+
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261037456.png)
+
+
+## Layers
+
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261055753.png)
+[Overview of Vulkan Loader and Layers - LunarG](https://www.lunarg.com/tutorial-overview-of-vulkan-loader-layers/#:~:text=Layers%20are%20optional%20components%20that%20augment%20the%20Vulkan,by%20application%20request%29%20and%20are%20loaded%20during%20CreateInstance.)
+
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261100731.png)
+
+- layers被插入在loader中间，用来拦截，修改API
+- layers作为可选项，debug开启，release关闭，==Vulkan API的设计是紧紧围绕最小化驱动程序开销进行的==
+- layers常用功能：
+	校验API
+	debug、log
+	覆盖API调用
+
+## Extension
+用来开启vulkan的扩展特性API，包括RayTracing、SwapChain等
+
+## 属性查询
+```cpp
+uint32_t layerCount;  
+vkEnumerateInstanceLayerProperties(&layerCount, nullptr);   //查询可用数量  
+
+std::vector<VkLayerProperties> availableLayers(layerCount); //根据数量分配内存  
+vkEnumerateInstanceLayerProperties(&layerCount,availableLayers.data()); //查询属性
+```
+
+# Validation layers
+验证层工作示例：
+```cpp
+VkResult vkCreateInstance(
+	const VkInstanceCreateInfo* pCreateInfo,
+	const VkAllocationCallbacks* pAllocator,
+	VkInstance* instance) 
+	{
+
+	if (pCreateInfo == nullptr || instance == nullptr) {
+		log("Null pointer passed to required parameter!");
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	return real_vkCreateInstance(pCreateInfo, pAllocator, instance);
+}
+```
+
+- checkValidationLayerSupport：检查所有需要开启的layer是否支持
+- getRequiredExtensions()：获取需要开启的extension，glfw、验证层layer等
+
+VkDebugUtilsMessengerCreateInfoEXT：用来打印报错信息
+```cpp
+VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
+createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+createInfo.pfnUserCallback = debugCallback;
+createInfo.pUserData = nullptr; // Optional
+```
+- sType：指定消息级别，用来过滤一些消息
+	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT：诊断信息
+	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT：资源创建之类的信息
+	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT：警告信息
+	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT：不合法和可能造成崩溃的操作信息
+
+- messageSeverity：指定消息的错误级别
+	- VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT：发生了一些与规范和性能无关的事件
+	- VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT：出现了违反规范的情况或发生了一个可能的错误
+	- VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT：进行了可能影响Vulkan性能的行为
+
+- pfnUserCallback：指向VkDebugUtilsMessengerCallbackDataEXT结构体的指针，包含错误信息字符串等
+
+- pUserData：传入的回调函数，返回值用来控制发生错误时，是否终止运行
+```cpp
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void* pUserData) {
+
+	std::cerr << "validation layer: " << pCallbackData->pMessage
+					<< std::endl;
+
+	return VK_FALSE;
+}
+```
+
+注：具体代码有点复杂，大致自洽，使用为主
+
+# Device
