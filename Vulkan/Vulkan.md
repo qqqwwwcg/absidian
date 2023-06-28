@@ -1,20 +1,24 @@
+[Vulkan Tutorial)](https://vulkan-tutorial.com/Introduction)
+
+[Vulkan Tutorial-CN](https://zhuanlan.zhihu.com/p/56338417)
+
+  
+
 Vulkan学习指南
 
 [Learning Vulkan](https://github.com/PacktPublishing/Learning-Vulkan)
 
-[Vulkan 学习指南 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1033291907413250048)
-
-[Vulkan编程指南:网页版](https://zhuanlan.zhihu.com/p/56338417)(Vulkan Tutorial:翻译版)
-
-[Vulkan Tutorial：C++](https://vulkan-tutorial.com/Development_environment)
+  
 
 [Vulkan: Examples](https://github.com/SaschaWillems/Vulkan)
 
+  
+
 [Vulkan从入门到精通1 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/430397192)
 
-[Vulkan 教程|极客教程 (geek-docs.com)](https://geek-docs.com/vulkan/vulkan-tutorial/vulkan-tutorial-index.html)
+[Vulkan 学习指南 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1033291907413250048)
 
- [Vulkan 三角形之旅 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/555146594)
+[Vulkan文章汇总 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/616082929)
  
 
 ## Swap Chain(Mulit Buffer)
@@ -1023,35 +1027,67 @@ vulkan本身是与平台无关的，需要利用原生平台的窗口系统来�
 
   
 
-SwapChain
-
-![[#Swap Chain(Mulit Buffer)]]
+### Swap Chain(Mulit Buffer)
 
   
 
-presentation将绘制内容，呈现到surface
+交换链或多缓冲
+
+  
+
+在单缓冲的情况下，画面时逐行逐像素的刷新，同一个缓冲一边显示一边用来处理数据，会导致最终画面出现**闪烁、撕裂**等
+
+  
+
+因此，采用双缓冲，缓冲A用来呈现画面，缓冲B用来后台处理数据，数据处理完成后，交换AB，使得始终有缓冲用来处理数据，不会停下来，同时保证呈现画面始终的处理完数据的画面，而不是处理一半的画面
+
+  
+
+In [computer science](https://en.wikipedia.org/wiki/Computer_science), **multiple buffering** is the use of more than one [buffer](https://en.wikipedia.org/wiki/Buffer_(computer_science)) to hold a block of data, so that a "reader" will see a complete (though perhaps old) version of the data, rather than a partially updated version of the data being created by a ["writer"](https://en.wikipedia.org/wiki/Readers-writers_problem). It is very commonly used for computer display images. It is also used to avoid the need to use [dual-ported RAM](https://en.wikipedia.org/wiki/Dual-ported_RAM) (DPRAM) when the readers and writers are different devices.
+
+  
+
+[多重缓冲 - 维基百科 (wikipedia.org)](https://en.wikipedia.org/wiki/Multiple_buffering)
+
+  
+
+### presentation
+
+将绘制内容，呈现到surface
+
+  
 
   
 
 注：surface、swapchain都属于extension，需要在Instance中开启
 
   
+
   
 
 ## image & frame buffer
 
+  
+
 通过image view指定对swap chain输出内容的解析格式
 
+  
+
 注：输出内容不变，仅是按照不同格式去解析 RGBA，RGB？
+
+  
 
   
 
 frame buffer: pipeline最终输出到buffer
 
   
+
   
 
 在gup中分配的一小块内存空间，显卡访问GPU的速度，要比访问CPU的速度快很多；
+
+  
 
   
 
@@ -1059,116 +1095,498 @@ frame buffer: pipeline最终输出到buffer
 
   
 
+  
+
 ②buffer创建时，还存在cpu中，bind就是转移到具体buffer类型中
+
+  
 
   
 
 ## pipeline
 
+  
+
 光栅化Pipeline
+
+  
 
 RayTraceing Pipeline
 
   
 
+  
+
 TODO：加链接
 
-# Instance
+  
+
+# 概述
+
+## 函数调用
+
+函数仅返回bool或VkResult，用来判断函数的结果
+
+get类函数，都是先在外申请变量，分配好内存，再作为参数传入函数来读取结果
+
+这样做的好处是，所有函数的形式统一，不必返回类似(bool, result)这样的形式；且方便对函数的调用是否正确进行判断
+
+  
+
+## 属性查询
+
+```cpp
+
+uint32_t layerCount;
+
+vkEnumerateInstanceLayerProperties(&layerCount, nullptr); //查询可用数量
+
+  
+
+std::vector<VkLayerProperties> availableLayers(layerCount); //根据数量分配内存
+
+vkEnumerateInstanceLayerProperties(&layerCount,availableLayers.data()); //查询属性
+
+```
+
+  
+  
+
+# Set up
+
+## Instance
+
 instance 通过createInstance(createInfo info)创建
+
+  
 
 info中指定了开启的layer、extension、appInfo(版本信息)
 
+  
+
 ![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261037456.png)
 
+  
+  
 
 ## Layers
 
+  
+
 ![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261055753.png)
+
 [Overview of Vulkan Loader and Layers - LunarG](https://www.lunarg.com/tutorial-overview-of-vulkan-loader-layers/#:~:text=Layers%20are%20optional%20components%20that%20augment%20the%20Vulkan,by%20application%20request%29%20and%20are%20loaded%20during%20CreateInstance.)
+
+  
 
 ![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261100731.png)
 
+  
+
 - layers被插入在loader中间，用来拦截，修改API
+
 - layers作为可选项，debug开启，release关闭，==Vulkan API的设计是紧紧围绕最小化驱动程序开销进行的==
+
 - layers常用功能：
-	校验API
-	debug、log
-	覆盖API调用
+
+校验API
+
+debug、log
+
+覆盖API调用
+
+  
 
 ## Extension
+
 用来开启vulkan的扩展特性API，包括RayTracing、SwapChain等
 
-## 属性查询
-```cpp
-uint32_t layerCount;  
-vkEnumerateInstanceLayerProperties(&layerCount, nullptr);   //查询可用数量  
+  
+  
 
-std::vector<VkLayerProperties> availableLayers(layerCount); //根据数量分配内存  
-vkEnumerateInstanceLayerProperties(&layerCount,availableLayers.data()); //查询属性
-```
+## Validation layers
 
-# Validation layers
 验证层工作示例：
+
 ```cpp
-VkResult vkCreateInstance(
-	const VkInstanceCreateInfo* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkInstance* instance) 
-	{
 
-	if (pCreateInfo == nullptr || instance == nullptr) {
-		log("Null pointer passed to required parameter!");
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
+VkResult  vkCreateInstance(
 
-	return real_vkCreateInstance(pCreateInfo, pAllocator, instance);
+const  VkInstanceCreateInfo*  pCreateInfo,
+
+const  VkAllocationCallbacks*  pAllocator,
+
+VkInstance*  instance)
+
+{
+
+  
+
+if (pCreateInfo ==  nullptr  || instance ==  nullptr) {
+
+log("Null pointer passed to required parameter!");
+
+return VK_ERROR_INITIALIZATION_FAILED;
+
 }
+
+  
+
+return  real_vkCreateInstance(pCreateInfo, pAllocator, instance);
+
+}
+
 ```
+
+  
 
 - checkValidationLayerSupport：检查所有需要开启的layer是否支持
+
 - getRequiredExtensions()：获取需要开启的extension，glfw、验证层layer等
 
+  
+
 VkDebugUtilsMessengerCreateInfoEXT：用来打印报错信息
+
 ```cpp
+
 VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
-createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-createInfo.pfnUserCallback = debugCallback;
-createInfo.pUserData = nullptr; // Optional
+
+createInfo.sType  = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+
+createInfo.messageSeverity  = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+
+VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+
+VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
+createInfo.messageType  = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+
+VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+
+VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+
+createInfo.pfnUserCallback  = debugCallback;
+
+createInfo.pUserData  =  nullptr; // Optional
+
 ```
+
 - sType：指定消息级别，用来过滤一些消息
-	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT：诊断信息
-	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT：资源创建之类的信息
-	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT：警告信息
-	- VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT：不合法和可能造成崩溃的操作信息
+
+- VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT：诊断信息
+
+- VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT：资源创建之类的信息
+
+- VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT：警告信息
+
+- VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT：不合法和可能造成崩溃的操作信息
+
+  
 
 - messageSeverity：指定消息的错误级别
-	- VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT：发生了一些与规范和性能无关的事件
-	- VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT：出现了违反规范的情况或发生了一个可能的错误
-	- VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT：进行了可能影响Vulkan性能的行为
+
+- VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT：发生了一些与规范和性能无关的事件
+
+- VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT：出现了违反规范的情况或发生了一个可能的错误
+
+- VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT：进行了可能影响Vulkan性能的行为
+
+  
 
 - pfnUserCallback：指向VkDebugUtilsMessengerCallbackDataEXT结构体的指针，包含错误信息字符串等
 
+  
+
 - pUserData：传入的回调函数，返回值用来控制发生错误时，是否终止运行
+
 ```cpp
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void* pUserData) {
 
-	std::cerr << "validation layer: " << pCallbackData->pMessage
-					<< std::endl;
+VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 
-	return VK_FALSE;
+VkDebugUtilsMessageTypeFlagsEXT messageType,
+
+const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+
+void* pUserData) {
+
+  
+
+std::cerr <<  "validation layer: "  <<  pCallbackData->pMessage
+
+<< std::endl;
+
+  
+
+return VK_FALSE;
+
 }
+
 ```
+
+  
 
 注：具体代码有点复杂，大致自洽，使用为主
 
-# Device
+  
+
+## PhysicalDevice
+
+物理设备仅用于查找属性，包含多个队列族
+
+  
+
+pickPhysicalDevice：获取第一个可用的GPU
+
+isDeviceSuitable：检查物理设备是否满足属性和特性需求
+
+vkGetPhysicalDeviceProperties：设备属性
+
+vkGetPhysicalDeviceFeatures：功能特性
+
+  
+
+## QueueFamily
+
+command会被提交到queue中，queue会按照类型存放在相应的队列族中
+
+  
+
+findQueueFamilies：查找队列族，找到第一个合适的队列族并返回其==索引==
+
+ps：此处队列族列表好像没有被保存在本地，之后传队列族索引到vulkan？
+
+  
+
+## Device
+
+物理设备仅用于查找属性，需要通过逻辑设备来与物理设备进行交互
+
+用多个逻辑设备来映射同一个GPU，使得每个逻辑设备仅包含一类队列
+
+VkDeviceCreateInfo
+
+sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
+
+pQueueCreateInfos: 队列Info列表
+
+queueCreateInfoCount: 队列数量
+
+pEnabledFeatures：
+
+enabledExtensionCount：扩展数量
+
+  
+
+## Queue
+
+队列属于逻辑设备，用于应用层和物理设备间的通讯
+
+应用层通过提交command到队列，物理设备读取队列并异步执行
+
+  
+
+队列的创建，隐式的创建在逻辑设备的创建过程中
+
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306271144725.png)
+
+ps: queuePriority是一个0到1之间的浮点数，用来控制命令的优先级
+
+  
+
+vkGetDeviceQueue：从device中获取queque句柄
+
+  
+  
+  
+
+# Presentation
+
+## surface
+
+vulkan本身是与平台无关的，需要利用原生平台的窗口系统 ==WSI== 来显示渲染的内容，vulkan通过surfece抽象各平台的窗口系统，例如windows下，需要hwnd和hinstance句柄来创建surface
+
+  
+
+教程中通过glfwCreateWindowSurface来创建surface
+
+  
+
+surfaceKHR属于extension，需要在物理设备中进行检查
+
+graphic：queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT
+
+persentation：vkGetPhysicalDeviceSurfaceSupportKHR
+
+  
+
+并且，绘制的队列族和支持呈现的队列族，有时不重叠，因此需要单独维护一个支持呈现的队列族，和graphic 队列族存放在一个列表中，用于创建逻辑设备
+
+  
+
+## swap chain
+
+在单缓冲的情况下，画面时逐行逐像素的刷新，同一个缓冲一边显示一边用来处理数据，会导致最终画面出现**闪烁、撕裂**等
+
+  
+
+因此，采用双缓冲，缓冲A用来呈现画面，缓冲B用来后台处理数据，数据处理完成后，交换AB，使得始终有缓冲用来处理数据，不会停下来，同时保证呈现画面始终的处理完数据的画面，而不是处理一半的画面
+
+[多重缓冲 - 维基百科 (wikipedia.org)](https://en.wikipedia.org/wiki/Multiple_buffering)
+
+  
+
+交换链的本质上就是包含了若干等待呈现的图像的队列，应用层通过交换链获取图像用于渲染数据，再将图像丢回队列
+
+  
+
+### Checking for swap chain support
+
+交换链的支持，需要在extension中开启VK_KHR_swapchain
+
+在 isDeviceSuitable中调用checkDeviceExtensionSupport，来检查物理设备是否支持该扩展
+
+之后在物理设备的创建参数中，加入扩展信息
+
+  
+
+### Querying details of swap chain support
+
+- 表面格式(像素格式，颜色空间)
+
+- 基础表面特性(交换链的最小/最大图像数量，最小/最大图像宽度、高度)
+
+- 可用的呈现模式
+
+  
+
+```cpp
+
+struct  SwapChainSupportDetails {
+
+VkSurfaceCapabilitiesKHR capabilities;
+
+std::vector<VkSurfaceFormatKHR> formats;
+
+std::vector<VkPresentModeKHR> presentModes;
+
+};
+
+```
+
+vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+
+vkGetPhysicalDeviceSurfaceFormatsKHR
+
+vkGetPhysicalDeviceSurfacePresentModesKHR
+
+查询对应属性
+
+  
+
+### Choosing the right settings for the swap chain
+
+设置交换链的属性，如果不支持，则设置一个其他属性
+
+  
+
+#### Surface format
+
+format：像素格式
+
+VK_FORMAT_B8G8R8A8_UNORM：BGRA，四通道，都是u8
+
+.....
+
+color space：颜色空间
+
+VK_COLOR_SPACE_SRGB_NONLINEAR_KHR：标志是否支持SRGB
+
+  
+
+chooseSwapSurfaceFormat：用来查找是否支持期望的format属性，不支持的话 则设置formats[0]
+
+  
+
+#### Presentation mode
+
+呈现模式用来指定什么情况下，图像被呈现到屏幕
+
+  
+
+VK_PRESENT_MODE_IMMEDIATE_KHR：应用程序提交的图像会被立即传输到屏幕上，可能会导致撕裂现象
+
+VK_PRESENT_MODE_FIFO_KHR：先进先出，队列头用于呈现，当队列满时，应用层阻塞
+
+VK_PRESENT_MODE_FIFO_RELAXED_KHR：先进先出，但是如果应用程序延迟，导致交换链的队列在上一次垂直回扫时为空，那么，如果应用程序在下一次垂直回扫前提交图像，图像会立即被显示。这一模式可能会导致撕裂现象
+
+VK_PRESENT_MODE_MAILBOX_KHR：先进先出，但是队列满时，不会阻塞应用层，直接替换队列中的图像
+
+  
+
+chooseSwapPresentMode：按优先级选取呈现模式，3->4->1->2
+
+  
+
+#### Swap extent
+
+对于部分窗口系统，会使用特殊值，例如u32::MAX，此时表示是否支持对当前的分辨率属性进行设置
+
+  
+
+chooseSwapExtent：
+
+检测系统是否支持自定义当前分辨率
+
+不支持：直接返回
+
+支持自定义：
+
+初始分辨率为glfw创建时的窗口屏幕分辨率
+
+对初始分辨率在swap chain支持的分辨率min、max中，做clomp
+
+  
+  
+
+### Creating the swap chain
+
+查询swap chain属性
+
+选择swap chain属性
+
+配置 creaetInfo，用到上述选择的属性，此外还有一些简单的属性配置
+
+  
+
+如果graphic队列族和persentation队列族不是同一个，此时，**images的计算和呈现在不同队列族中**
+
+在Info中指定imageSharingMode，性能开销明显
+
+- VK_SHARING_MODE_EXCLUSIVE：一张图像同一时间只能被一个队列族所拥有，在另一队列族使用它之前，必须显式地改变图像所有权。这一模式下性能表现最佳。
+
+- VK_SHARING_MODE_CONCURRENT：图像可以在多个队列族间使用，不需要显式地改变图像所有权
+
+preTransform：对呈现的image进行transform
+
+  
+
+注：swap chain创建参数过多，以后需要再查手册
+
+  
+
+### Retrieving the swap chain images
+
+```cpp
+
+std::vector<VkImage> swapChainImages;
+
+```
+
+vkGetSwapchainImagesKHR：获取swap chain的Images
+
+  
+
+## Image views
