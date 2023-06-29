@@ -1590,3 +1590,190 @@ vkGetSwapchainImagesKHR：获取swap chain的Images
   
 
 ## Image views
+VkImage存放在GPU中，应用层无法直接访问，需要通过ImageView来绑定VkImage，其作为VkImage对外的句柄，描述了访问图像的方式
+
+createInfo:
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306291032208.png)
+
+
+# Graphic Pipeline Basic
+## Introduction
+TODO: link to pipeline
+
+==注：此处的pipeline，相较于管线，流水线更加贴切，并且只是流水线模块的状态设置==
+
+## Shader modules
+[GL Shader Language（GLSL）基础语法](https://zhuanlan.zhihu.com/p/349296191)
+
+### SPIR-V & GLSL
+GLSL是类C代码，写起来比较流畅
+SPIR-V是Vulkan支持的二进制代码
+	SPIR-V更加高效，且不同GPU厂商和平台解析起来也一致，但是不会有人直接去写二进制代码
+先写GLSL，再通过vulkan支持的glslangValidator.exe转成SPIR-V
+
+### Vertex shader
+==顶点着色器对每个传入的顶点进行处理==，输入坐标和顶点属性，输出裁剪坐标和顶点属性
+	输出的裁剪坐标，进行透视除法后，得到NDC坐标
+	顶点属性包括：颜色、纹理坐标。ps：==插值==也发生在这个阶段
+	
+```GLSL
+#version 450 
+#extension GL_ARB_separate_shader_objects : enable 
+
+out gl_PerVertex { vec4 gl_Position; }; 
+vec2 positions[3] = vec2[]( vec2(0.0, -0.5), vec2(0.5, 0.5), vec2(-0.5, 0.5) ); 
+
+void main() { 
+	gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0); 
+}
+```
+其中，需要添加extension支持，有的变量为内建变量
+	in：输入
+	out：输出
+	out gl_PerVertex { vec4 gl_Position; }; 顶点着色器的固定输出格式
+	gl_Position：内建变量，顶点坐标
+	gl_VertexIndex：内建变量，顶点索引，一般用于在顶点缓冲中读取数据
+
+### Fragment shader
+```GLSL
+#version 450 
+#extension GL_ARB_separate_shader_objects : enable 
+
+layout(location = 0) out vec4 outColor; 
+void main() { 
+	outColor = vec4(1.0, 0.0, 0.0, 1.0);
+}
+```
+
+### Color interpolation
+对顶点颜色进行插值
+
+vertex shader:
+```GLSL
+#version 450 
+#extension GL_ARB_separate_shader_objects : enable 
+
+layout(location = 0) out vec3 fragColor;
+
+out gl_PerVertex { vec4 gl_Position; }; 
+vec2 positions[3] = vec2[]( vec2(0.0, -0.5), vec2(0.5, 0.5), vec2(-0.5, 0.5) ); 
+vec3 color[3] = vec3[](vec3(1.0, 0.0, 0.0),vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0));
+void main() { 
+	gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0); 
+	fragColor = colors[gl_VertexIndex];
+}
+```
+
+fragment shader:
+```GLSL
+#version 450 
+#extension GL_ARB_separate_shader_objects : enable 
+
+layout(location = 0) in vec3 fragColor;
+layout(location = 0) in vec4 outColor;
+
+void main() { 
+	outColor = vec4(fragColor, 1.0);
+}
+```
+
+对于输入变量和输出变量，通过location来关联，与变量名无关
+
+### Create shader
+#### compile
+创建shader文件夹，shader.vert存放顶点着色器GLSL代码，shader.frag存放片段着色器GLSL代码，后缀名无影响，习惯命名
+
+创建脚本文件，利用glslangValidator.exe将GLSL转化为SPIR-V
+```shell
+/home/user/VulkanSDK/x.x.x.x/x86_64/bin/glslangValidator -V shader.vert
+/home/user/VulkanSDK/x.x.x.x/x86_64/bin/glslangValidator -V shader.frag
+pause
+```
+得到vert.spv，frag.spv存放SPIR-V代码
+
+#### load
+从vert.spv，frag.spv读取数据，存放在vector< char >中
+```Cpp
+#include <fstream>
+
+static std::vector<char> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("failed to open file!");
+    }
+}
+```
+ps：ios:: ate从尾部读取，可以预先申请好空间，不用动态扩容；ios:: binary 按二进制读取
+
+#### create
+
+根据加载的code 封装 VkShaderModule
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306291526880.png)
+ps：code记得转为u32
+
+对封装的VkShaderModule指定着色器阶段
+```Cpp
+VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
+fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+fragShaderStageInfo.module = fragShaderModule;
+fragShaderStageInfo.pName = "main";
+```
+
+info下一节再用
+
+## Fixed function
+Vulkan中需要对所有状态都显示的给出，包括默认状态
+下面的状态信息，都被用来createPipeline
+
+### Vertex input
+描述传递给顶点着色器的顶点数据格式
+
+### Input assembly
+描述几何图元信息，以及是否复用图元
+
+### Viewports and scissors
+视口：图像如何==映射==到帧缓冲
+裁剪：裁剪矩形外的像素都会被==过滤==
+
+### Rasterizer
+- rasterizerDiscardEnable字段如果设置为VK_TRUE，那么将不会有任何几何体能够通过光栅化阶段。
+- depthClampEnable字段被设置为VK_TRUE，那么超出近平面和远平面的片段就会被夹在其中，而不是丢弃。在生成ShadowMap的过程会被用到。
+- polygonMode字段决定了如何为几何体填充像素区域。如果需要线框渲染可以通过将polygonMode设为VK_POLYGON_MODE_LINE来实现。
+- cullMode字段决定了面剔除的配置，可以禁用或者背面剔除或者前面剔除或两者兼用。frontFace变量规定了被视为正面的顶点顺序，可以是顺时针或逆时针。这将影响面剔除的结果。
+- depthBiasEnable字段决定是否开启深度偏置，
+- depthBiasConstantFactor是一个常量，控制添加到每个片段的的固定深度值。
+- depthBiasClamp是一个片段的最大(或最小)深度偏差。depthBiasSlopeFactor是一个常量，在深度偏差计算中应用于片段的斜率。这个将会在软阴影的实现中用到
+
+### Multisampling
+用于减少走样，比起提高分辨率再采样，开销更少
+按下不表
+
+### Depth and stencil testing
+- depthTestEnable字段指定是否应将新片段的深度与Depth Buffer进行比较，看它们是否应被丢弃。
+- depthWriteEnable字段指定是否应将通过深度测试的新片段的深度实际写入Depth Buffer。
+- depthCompareOp字段指定了为保留或丢弃片段所进行的如何去比较。一般来说较低的深度=较近的惯例，所以新片段的深度应该较小。
+- depthBoundsTestEnable字段用于可选的深度边界测试是否开启。基本上，这允许你只保留落在指定深度范围内的片段。
+- minDepthBounds字段用于深度边界测试的最小深度。
+- maxDepthBounds字段用于深度边界测试的最大深度。
+- stencilTestEnable字段指定是否开启Stencil Test。
+- fron和back字段指定关于StencilTest的配置。
+
+### Color blending
+current和last 混合
+current和常量混合
+
+### Dynamic state
+pipeline的创建，过于复杂，如果只想更改pipeline的部分属性，直接重建时不合适的
+但是，只有非常有限的管线状态可以在不重建管线的情况下进行动态修改。这包括视口大小，线宽和混合常量
+
+### Pipeline Layout
+我们可以在着色器中使用uniform变量，它可以在管线建立后动态地被应用程序修改，实现对着色器进行一定程度的动态配置。uniform变量经常被用来传递变换矩阵给顶点着色器，以及传递纹理采样器句柄给片段着色器。
+
+### 参考资料
+[理解Vulkan管线(Pipeline) - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/617307194)
+
+## Render Pass
+
+## Pipeline Create
