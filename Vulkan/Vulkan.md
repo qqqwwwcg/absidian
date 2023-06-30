@@ -1,37 +1,12 @@
-[Vulkan Tutorial)](https://vulkan-tutorial.com/Introduction)
-
+[Vulkan Tutorial](https://vulkan-tutorial.com/Introduction)
 [Vulkan Tutorial-CN](https://zhuanlan.zhihu.com/p/56338417)
 
-  
+[Vulkan笔记：深度+细致](https://zhuanlan.zhihu.com/p/616082929)
 
-Vulkan学习指南
+Vulkan学习指南.PDF:详细到每个参数
 
-[Learning Vulkan](https://github.com/PacktPublishing/Learning-Vulkan)
+[Vulkan: Examples：进阶](https://github.com/SaschaWillems/Vulkan)
 
-  
-
-[Vulkan: Examples](https://github.com/SaschaWillems/Vulkan)
-
-  
-
-[Vulkan从入门到精通1 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/430397192)
-
-[Vulkan 学习指南 - 知乎 (zhihu.com)](https://www.zhihu.com/column/c_1033291907413250048)
-
-[Vulkan文章汇总 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/616082929)
- 
-
-## Swap Chain(Mulit Buffer)
-
-交换链或多缓冲
-
-在单缓冲的情况下，画面时逐行逐像素的刷新，同一个缓冲一边显示一边用来处理数据，会导致最终画面出现**闪烁、撕裂**等
-
-因此，采用双缓冲，缓冲A用来呈现画面，缓冲B用来后台处理数据，数据处理完成后，交换AB，使得始终有缓冲用来处理数据，不会停下来，同时保证呈现画面始终的处理完数据的画面，而不是处理一半的画面
-
-In [computer science](https://en.wikipedia.org/wiki/Computer_science), **multiple buffering** is the use of more than one [buffer](https://en.wikipedia.org/wiki/Buffer_(computer_science)) to hold a block of data, so that a "reader" will see a complete (though perhaps old) version of the data, rather than a partially updated version of the data being created by a ["writer"](https://en.wikipedia.org/wiki/Readers-writers_problem). It is very commonly used for computer display images. It is also used to avoid the need to use [dual-ported RAM](https://en.wikipedia.org/wiki/Dual-ported_RAM) (DPRAM) when the readers and writers are different devices.
-
-[多重缓冲 - 维基百科 (wikipedia.org)](https://en.wikipedia.org/wiki/Multiple_buffering)
 
 ## 思路：
 
@@ -386,10 +361,10 @@ std::vector<const char *> instanceExtensionNames = {
 };  
 ​  
 std::vector<const char *> layerNames = {  
-    "VK_LAYER_GOOGLE_threading",       
+    "VK_LAYER_GOOGLE_threading",       
     "VK_LAYER_LUNARG_parameter_validation",  
     "VK_LAYER_LUNARG_object_tracker",  
-    "VK_LAYER_LUNARG_image",           
+    "VK_LAYER_LUNARG_image",           
     "VK_LAYER_LUNARG_core_validation",  
     "VK_LAYER_LUNARG_swapchain",  
     "VK_LAYER_GOOGLE_unique_objects",   
@@ -402,13 +377,13 @@ areLayersSupported：检测instance支持的layers
 
 写入instance配置
 ```
-   // Specify the list of layer name to be enabled.     //开启layers和extensions  
-    instInfo.enabledLayerCount = layers.size();   
-    instInfo.ppEnabledLayerNames   = layers.data();  
-    instInfo.enabledExtensionCount = extensions.size();  
-    instInfo.ppEnabledExtensionNames = extensions.data();  
+   // Specify the list of layer name to be enabled.     //开启layers和extensions  
+    instInfo.enabledLayerCount = layers.size();   
+    instInfo.ppEnabledLayerNames   = layers.data();  
+    instInfo.enabledExtensionCount = extensions.size();  
+    instInfo.ppEnabledExtensionNames = extensions.data();  
 ​  
-    VkResult res = vkCreateInstance(&instInfo, NULL, &instance);
+    VkResult res = vkCreateInstance(&instInfo, NULL, &instance);
 ```
 
 
@@ -1155,23 +1130,14 @@ vkEnumerateInstanceLayerProperties(&layerCount,availableLayers.data()); //查询
 # Set up
 
 ## Instance
+![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261100731.png)
+==instance中存放了所有对象的状态==
 
 instance 通过createInstance(createInfo info)创建
-
-  
-
 info中指定了开启的layer、extension、appInfo(版本信息)
-
-  
-
 ![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261037456.png)
 
-  
-  
-
 ## Layers
-
-  
 
 ![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261055753.png)
 
@@ -1179,7 +1145,7 @@ info中指定了开启的layer、extension、appInfo(版本信息)
 
   
 
-![image.png](https://images-1318884142.cos.ap-guangzhou.myqcloud.com/images/202306261100731.png)
+
 
   
 
@@ -1205,6 +1171,10 @@ debug、log
   
 
 ## Validation layers
+- 根据规范检查参数数值，最终确认是否存与预期不符的情况
+- 跟踪对象的创建和销毁，以查找是否存在资源的泄漏
+- 跟踪线程的调用链，确认线程执行过程中的安全性
+- 将每次函数调用所使用的参数记录到标准的输出中，进行初步的Vulkan概要分析
 
 验证层工作示例：
 
@@ -1326,15 +1296,26 @@ return VK_FALSE;
 
 ```
 
-  
-
+  vkCreateDebugUtilsMessengerEXT是拓展函数，需要在instance中检查
+```cpp
+// 需要通过vkCreateDebugUtilsMessengerEXT来创建，但是这个函数又是个扩展函数。必须检查一下
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    // 可通过vkGetInstanceProcAddr来查找是否有这个函数。
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    } else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+```
 注：具体代码有点复杂，大致自洽，使用为主
 
   
 
 ## PhysicalDevice
 
-物理设备仅用于查找属性，包含多个队列族
+GPU用于查找属性，包含多个队列族
 
   
 
@@ -1356,7 +1337,7 @@ command会被提交到queue中，queue会按照类型存放在相应的队列族
 
 findQueueFamilies：查找队列族，找到第一个合适的队列族并返回其==索引==
 
-ps：此处队列族列表好像没有被保存在本地，之后传队列族索引到vulkan？
+ps：此处队列族列表没有被保存在本地，之后传队列族索引到vulkan
 
   
 
@@ -1408,19 +1389,12 @@ vkGetDeviceQueue：从device中获取queque句柄
 
 vulkan本身是与平台无关的，需要利用原生平台的窗口系统 ==WSI== 来显示渲染的内容，vulkan通过surfece抽象各平台的窗口系统，例如windows下，需要hwnd和hinstance句柄来创建surface
 
-  
-
 教程中通过glfwCreateWindowSurface来创建surface
-
-  
 
 surfaceKHR属于extension，需要在物理设备中进行检查
 
 graphic：queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT
-
 persentation：vkGetPhysicalDeviceSurfaceSupportKHR
-
-  
 
 并且，绘制的队列族和支持呈现的队列族，有时不重叠，因此需要单独维护一个支持呈现的队列族，和graphic 队列族存放在一个列表中，用于创建逻辑设备
 
@@ -1526,7 +1500,7 @@ VK_PRESENT_MODE_MAILBOX_KHR：先进先出，但是队列满时，不会阻塞�
 
   
 
-chooseSwapPresentMode：按优先级选取呈现模式，3->4->1->2
+chooseSwapPresentMode：按优先级选取呈现模式，优先4 三重缓冲
 
   
 
@@ -1597,6 +1571,10 @@ createInfo:
 
 
 # Graphic Pipeline Basic
+	PSO：pipeline state object
+	PCO: pipeline cache object
+	Pipeline Layout
+
 ## Introduction
 TODO: link to pipeline
 
@@ -1775,5 +1753,35 @@ pipeline的创建，过于复杂，如果只想更改pipeline的部分属性，�
 [理解Vulkan管线(Pipeline) - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/617307194)
 
 ## Render Pass
+### SubPass
+每个subPass绑定一条流水线，renderPass可以有多个subPass，subPass的输出可以作为下个subPass的输入
 
 ## Pipeline Create
+pipeline的创建，需要指定着色器，指定pipeline state，指定pipeline layout, 绑定renderPass和subPass的索引
+
+# Drawing
+## Framebuffer
+存放一组VkImage，用于屏幕显示
+
+## Command buffer
+command而不是函数调用的好处在于，可以收集命令，一次性全部提交到队列中，方便GPU进行并行处理优化
+
+### Command Pool
+命令池，管理buffer，从pool中分配内存
+commadnPool需要指定队列族
+
+### Commad Create
+帧缓冲和comand buffer一一对应，并从commandPool中分配内存
+vkResetCommandPool：重置commandBuffer，commandPool回收这部分内存
+
+### Command state
+- 起始状态，命令缓冲区刚被分配或重置时就是这个状态
+- 记录状态，vkBeginCommandBuffer开始录制，命令将被记录在命令缓冲区中
+- 可执行状态，vkEndCommandBuffer结束录制，命令缓冲区可以被提交
+- 待定状态，命令缓冲区被提交到队列中会使它处于这个状态。提交后无法再更改命令，状态结束后，恢复到可执行状态
+- 不可用状态，在这个状态下，命令缓冲区只能被重置或释放。
+
+## Rendering and persentation
+## Frame in fight
+
+# Swap chain recreation
